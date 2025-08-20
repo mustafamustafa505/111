@@ -1,0 +1,22 @@
+{
+  "name": "bitcoin-mining-site",
+  "version": "1.0.0",
+  "description": "Demo -> Production-ready skeleton: Stripe + CoinPayments + three.js panorama",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "nodemon server.js"
+  },
+  "dependencies": {
+    "body-parser": "^1.20.2",
+    "coinpayments": "^1.1.1",
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2",
+    "mongoose": "^7.6.0",
+    "stripe": "^12.14.0",
+    "tronweb": "^3.3.0"
+  },
+  "engines": {
+    "node": ">=16"
+  }
+}

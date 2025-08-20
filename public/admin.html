@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>لوحة إدارة — BARON MINING</title>
+  <style>
+    body{font-family:Arial,Helvetica, sans-serif;background:#071226;color:#e6eef6;padding:20px}
+    .row{display:flex;gap:12px;margin-bottom:12px}
+    .card{background:#0b1422;padding:12px;border-radius:8px;border:1px solid rgba(255,255,255,0.03)}
+    table{width:100%;border-collapse:collapse}
+    th,td{padding:8px;border-bottom:1px solid rgba(255,255,255,0.03);text-align:right}
+    button{padding:6px 10px;border-radius:6px;border:none;background:#1e88e5;color:white;cursor:pointer}
+    .danger{background:#c53939}
+    input[type=text]{padding:8px;border-radius:6px;border:1px solid rgba(255,255,255,0.06);background:transparent;color:inherit}
+  </style>
+</head>
+<body>
+  <h1>لوحة الإدارة</h1>
+  <div class="row">
+    <div class="card">
+      <label>رمز الإدارة (ADMIN_TOKEN):</label>
+      <input id="adminToken" type="text" placeholder="أدخل رمز الإدارة">
+      <button id="saveToken">حفظ مؤقت</button>
+    </div>
+    <div class="card">
+      <button id="loadUsers">تحميل المستخدمين</button>
+      <button id="loadPurchases">تحميل عمليات الشراء</button>
+      <button id="loadWithdrawals">تحميل طلبات السحب</button>
+    </div>
+  </div>
+
+  <h2>طلبات السحب</h2>
+  <div id="withdrawalsContainer" class="card"></div>
+
+  <h2>المستخدمون</h2>
+  <div id="usersContainer" class="card"></div>
+
+  <h2>الاشتراكات</h2>
+  <div id="purchasesContainer" class="card"></div>
+
+<script>
+  function getToken(){
+    return localStorage.getItem('admin_token') || document.getElementById('adminToken').value.trim();
+  }
+  document.getElementById('saveToken').addEventListener('click', ()=>{
+    const v = document.getElementById('adminToken').value.trim();
+    localStorage.setItem('admin_token', v);
+    alert('تم حفظ الرمز مؤقتًا في المتصفح');
+  });
+
+  async function api(path, method='GET', body=null){
+    const token = getToken();
+    if(!token){ alert('أدخل رمز الإدارة أولاً'); throw 'no token'; }
+    const opts = { method, headers: { 'x-admin-token': token } };
+    if(body){ opts.headers['content-type'] = 'application/json'; opts.body = JSON.stringify(body); }
+    const res = await fetch(path, opts);
+    if(res.status===401){ alert('Unauthorized - تحقق من رمز الإدارة'); throw 'unauth'; }
+    return res.json();
+  }
+
+  document.getElementById('loadWithdrawals').addEventListener('click', async ()=>{
+    try{
+      const data = await api('/admin/api/withdrawals');
+      const container = document.getElementById('withdrawalsContainer');
+      if(!data || data.length===0){ container.innerHTML = '<div>لا توجد طلبات سحب</div>'; return; }
+      let html = '<table><tr><th>المعرف</th><th>العنوان</th><th>المبلغ</th><th>الحالة</th><th>خيارات</th></tr>';
+      data.forEach(w=>{
+        html += `<tr><td>${w._id}</td><td>${w.address}</td><td>${w.amountUSD} USD</td><td>${w.status}</td><td>`;
+        html += `<button onclick="approve('${w._id}')">موافقة</button> `;
+        html += `<button class="danger" onclick="reject('${w._id}')">رفض</button>`;
+        html += `</td></tr>`;
+      });
+      html += '</table>';
+      container.innerHTML = html;
+    }catch(err){ console.error(err); }
+  });
+
+  async function approve(id){
+    const note = prompt('ملاحظة إدارية (اختياري)');
+    await api('/admin/api/withdrawals/'+id+'/approve','POST',{note});
+    alert('تمت الموافقة');
+    document.getElementById('loadWithdrawals').click();
+  }
+  async function reject(id){
+    const note = prompt('سبب الرفض (اختياري)');
+    await api('/admin/api/withdrawals/'+id+'/reject','POST',{note});
+    alert('تم الرفض');
+    document.getElementById('loadWithdrawals').click();
+  }
+
+  document.getElementById('loadUsers').addEventListener('click', async ()=>{
+    try{
+      const data = await api('/admin/api/users');
+      const container = document.getElementById('usersContainer');
+      if(!data || data.length===0){ container.innerHTML = '<div>لا يوجد مستخدمين</div>'; return; }
+      let html = '<table><tr><th>معرف</th><th>البريد</th><th>المحفظة</th><th>أنشئ</th></tr>';
+      data.forEach(u=>{
+        html += `<tr><td>${u._id}</td><td>${u.email||'-'}</td><td>${u.depositWallet||'-'}</td><td>${new Date(u.createdAt).toLocaleString()}</td></tr>`;
+      });
+      html += '</table>';
+      container.innerHTML = html;
+    }catch(err){ console.error(err); }
+  });
+
+  document.getElementById('loadPurchases').addEventListener('click', async ()=>{
+    try{
+      const data = await api('/admin/api/purchases');
+      const container = document.getElementById('purchasesContainer');
+      if(!data || data.length===0){ container.innerHTML = '<div>لا عمليات شراء</div>'; return; }
+      let html = '<table><tr><th>معرف</th><th>الخطة</th><th>المبلغ</th><th>المزود</th><th>الحالة</th></tr>';
+      data.forEach(p=>{
+        html += `<tr><td>${p._id}</td><td>${p.planName}</td><td>${p.amountUSD} USD</td><td>${p.provider}</td><td>${p.status}</td></tr>`;
+      });
+      html += '</table>';
+      container.innerHTML = html;
+    }catch(err){ console.error(err); }
+  });
+</script>
+</body>
+</html>
